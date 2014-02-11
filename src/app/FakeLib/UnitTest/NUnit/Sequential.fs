@@ -2,19 +2,7 @@
 /// Contains tasks to run [NUnit](http://www.nunit.org/) unit tests.
 module Fake.NUnitSequential
 
-/// Runs NUnit on a group of assemblies.
-/// ## Parameters
-/// 
-///  - `setParams` - Function used to manipulate the default NUnitParams value.
-///  - `assemblies` - Sequence of one or more assemblies containing NUnit unit tests.
-/// 
-/// ## Sample usage
-///
-///     Target "Test" (fun _ ->
-///         !! (testDir + @"\Test.*.dll") 
-///           |> NUnit (fun p -> { p with ErrorLevel = DontFailBuild })
-///     )
-let NUnit (setParams: NUnitParams -> NUnitParams) (assemblies: string seq) =
+let internal NUnitHelper execProcess (setParams: NUnitParams -> NUnitParams) (assemblies: string seq) =
     let details = assemblies |> separated ", "
     traceStartTask "NUnit" details
     let parameters = NUnitDefaults |> setParams
@@ -29,7 +17,7 @@ let NUnit (setParams: NUnitParams -> NUnitParams) (assemblies: string seq) =
     let args = buildNUnitdArgs parameters assemblies
     trace (tool + " " + args)
     let result =
-        ExecProcess (fun info ->  
+        execProcess (fun (info: System.Diagnostics.ProcessStartInfo) ->  
             info.FileName <- tool
             info.WorkingDirectory <- getWorkingDir parameters
             info.Arguments <- args) parameters.TimeOut
@@ -51,3 +39,20 @@ let NUnit (setParams: NUnitParams -> NUnitParams) (assemblies: string seq) =
         match result with
         | OK -> traceEndTask "NUnit" details
         | _ -> failwith (errorDescription result)
+
+
+/// Runs NUnit on a group of assemblies.
+/// ## Parameters
+/// 
+///  - `setParams` - Function used to manipulate the default NUnitParams value.
+///  - `assemblies` - Sequence of one or more assemblies containing NUnit unit tests.
+/// 
+/// ## Sample usage
+///
+///     Target "Test" (fun _ ->
+///         !! (testDir + @"\Test.*.dll") 
+///           |> NUnit (fun p -> { p with ErrorLevel = DontFailBuild })
+///     )
+let NUnit (setParams: NUnitParams -> NUnitParams) (assemblies: string seq) =
+    NUnitHelper ExecProcess
+
