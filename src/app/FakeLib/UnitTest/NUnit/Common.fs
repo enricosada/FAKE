@@ -73,6 +73,34 @@ let buildNUnitdArgs parameters assemblies =
     |> append (parameters.AdditionalArguments |> String.concat " ")
     |> toText
 
+let buildNUnitdArgs2 p assemblies =
+    let isSet s = not <| String.IsNullOrEmpty(s)
+    let ifSet f x = if isSet x then Some (f x) else None
+    [ 
+        [
+            Some "-nologo";
+            (if p.DisableShadowCopy then Some "-noshadow" else None);
+            (if p.ShowLabels then Some "-labels" else None);
+            (if p.TestInNewThread then Some "-thread" else None);
+        ];
+        (assemblies |> List.map Some);
+        [
+            p.IncludeCategory |> ifSet (sprintf "-include:%s");
+            p.ExcludeCategory |> ifSet (sprintf "-exclude:%s");
+            p.XsltTransformFile |> ifSet (sprintf "-transform:'%s'");
+            p.OutputFile |> ifSet (sprintf "-xml:'%s'");
+            p.Out |> ifSet (sprintf "-out:'%s'");
+            p.Framework |> ifSet (sprintf "-framework:%s")
+            p.ErrorOutputFile |> ifSet (sprintf "-err:%s")
+            p.Domain |> ifSet (sprintf "-domain:%s")
+            p.Process |> Option.bind (sprintf "-process:%s" >> Some)
+        ];
+        (p.AdditionalArguments |> List.map Some);
+    ]
+    |> List.concat
+    |> List.choose id
+
+
 /// Tries to detect the working directory as specified in the parameters or via TeamCity settings
 /// [omit]
 let getWorkingDir parameters =

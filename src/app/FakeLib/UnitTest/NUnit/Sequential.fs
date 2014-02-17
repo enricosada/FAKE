@@ -2,27 +2,35 @@
 /// Contains tasks to run [NUnit](http://www.nunit.org/) unit tests.
 module Fake.NUnitSequential
 
-let internal NUnitHelper execProcess (setParams: NUnitParams -> NUnitParams) (assemblies: string seq) =
-    let details = assemblies |> separated ", "
-    traceStartTask "NUnit" details
-    let parameters = NUnitDefaults |> setParams
-              
-    let assemblies =  assemblies |> Seq.toArray
+type ShOptions = {
+    Timeout: System.TimeSpan
 
-    if Array.isEmpty assemblies then
+}
+
+let sh path (workingDir: System.IO.DirectoryInfo) timeout arguments =
+    let args = arguments |> List.toSeq |> String.concat " "
+    ExecProcess (fun (info: System.Diagnostics.ProcessStartInfo) ->  
+        info.FileName <- path
+        info.WorkingDirectory <- workingDir.FullName
+        info.Arguments <- args) timeout
+
+let internal nunitConsole (parameters: NUnitParams) assemblies =
+    if List.isEmpty assemblies then
         failwith "NUnit: cannot run tests (the assembly list is empty)."
-
+         
     let tool = parameters.ToolPath @@ parameters.ToolName
 
-    let args = buildNUnitdArgs parameters assemblies
-    trace (tool + " " + args)
-    let result =
-        execProcess (fun (info: System.Diagnostics.ProcessStartInfo) ->  
-            info.FileName <- tool
-            info.WorkingDirectory <- getWorkingDir parameters
-            info.Arguments <- args) parameters.TimeOut
+    let args = buildNUnitdArgs2 parameters assemblies
+    let workingDir = System.IO.DirectoryInfo(parameters.WorkingDir)
+    (tool, workingDir parameters.TimeOut args 
 
-    sendTeamCityNUnitImport (getWorkingDir parameters @@ parameters.OutputFile)
+let internal nunitHelper runner parameters assemblies =
+    let details = assemblies |> List.toSeq |> separated ", "
+    traceStartTask "NUnit" details
+
+    let result = runner parameters assemblies
+
+    sendTeamCityNUnitImport (parameters.WorkingDir @@ parameters.OutputFile)
 
     let errorDescription error = 
         match error with
@@ -53,6 +61,10 @@ let internal NUnitHelper execProcess (setParams: NUnitParams -> NUnitParams) (as
 ///         !! (testDir + @"\Test.*.dll") 
 ///           |> NUnit (fun p -> { p with ErrorLevel = DontFailBuild })
 ///     )
-let NUnit (setParams: NUnitParams -> NUnitParams) (assemblies: string seq) =
-    NUnitHelper ExecProcess
+let NUnit setParams assemblies =
+    let parameters = 
+        NUnitDefaults 
+        |> setParams
+        |> (fun p -> {p with WorkingDir = getWorkingDir p})
+    nunitHelper (nunitConsole sh) parameters (assemblies |> Seq.toList)
 

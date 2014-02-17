@@ -10,6 +10,8 @@ open System.Runtime.InteropServices
 [<assembly: AssemblyVersionAttribute("0.0.1")>]
 [<assembly: AssemblyFileVersionAttribute("0.0.1")>]
 
+[<assembly:System.Runtime.CompilerServices.InternalsVisibleTo("FakeLib.Tests")>]
+
 ()
 
 module internal AssemblyVersionInformation =
